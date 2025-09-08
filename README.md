@@ -10,6 +10,30 @@ Production-focused streaming and batch pipeline for NYC Citi Bike GBFS station s
 - Parquet data lake (Bronze/Silver)
 - Soda Core (data quality checks)
 
+## Architecture
+```mermaid
+flowchart LR
+  GBFS[NYC Citi Bike GBFS\nstation_status.json]
+  PROD[Python Producer\nHTTP -> Kafka (JSON)]
+  KAFKA[(Kafka)]
+  SPARK[Spark Structured Streaming]
+  BRZ[[Bronze\nParquet]]
+  SLV[[Silver\nParquet]]
+  GOLD[(Postgres\nstation_availability_15m)]
+  AF[Airflow DAGs]
+  SODA[Soda Core\nChecks]
+
+  GBFS --> PROD --> KAFKA
+  KAFKA -->|consume| SPARK
+  SPARK --> BRZ
+  SPARK --> SLV
+  SPARK --> GOLD
+  AF -->|spark-submit backfill| SPARK
+  AF -->|soda scan| SODA
+  SODA -.checks.-> GOLD
+  AF -->|housekeeping| BRZ
+```
+
 ## Prerequisites
 - Docker Desktop (allocate 6–8 GB RAM)
 - Make, Git
