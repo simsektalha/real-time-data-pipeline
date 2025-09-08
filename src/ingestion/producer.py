@@ -5,8 +5,9 @@ import requests
 from typing import Dict, Any
 from tenacity import retry, wait_exponential, stop_after_attempt
 
-from confluent_kafka import Producer, KafkaError, KafkaException
-from confluent_kafka.admin import AdminClient, NewTopic
+from kafka import KafkaProducer
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError
 
 GBFS_STATUS_URL = os.getenv("GBFS_STATUS_URL", "https://gbfs.citibikenyc.com/gbfs/en/station_status.json")
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
@@ -14,21 +15,12 @@ TOPIC = os.getenv("KAFKA_TOPIC", "gbfs.station_status.json")
 POLL_SECS = int(os.getenv("PRODUCER_POLL_SECS", "30"))
 
 
-def ensure_topic(admin: AdminClient, topic: str) -> None:
-    md = admin.list_topics(timeout=5)
-    if topic in md.topics:
-        return
-    new_topic = NewTopic(topic=topic, num_partitions=1, replication_factor=1,
-                         config={"retention.ms": "259200000", "cleanup.policy": "delete"})
-    fs = admin.create_topics([new_topic])
-    for _, f in fs.items():
-        try:
-            f.result()
-        except KafkaException as e:
-            if e.args and isinstance(e.args[0], KafkaError) and e.args[0].code() == KafkaError.TOPIC_ALREADY_EXISTS:
-                pass
-            else:
-                raise
+def ensure_topic(admin: KafkaAdminClient, topic: str) -> None:
+    try:
+        admin.create_topics([NewTopic(name=topic, num_partitions=1, replication_factor=1,
+                                      topic_configs={"retention.ms": "259200000", "cleanup.policy": "delete"})])
+    except TopicAlreadyExistsError:
+        pass
 
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=30), stop=stop_after_attempt(5))
@@ -36,12 +28,6 @@ def fetch_gbfs() -> Dict[str, Any]:
     r = requests.get(GBFS_STATUS_URL, timeout=15)
     r.raise_for_status()
     return r.json()
-
-
-def delivery_cb(err, msg):
-    if err is not None:
-        print(f"Delivery failed for key={msg.key()}: {err}")
-    return
 
 
 def normalize(record: Dict[str, Any]) -> Dict[str, Any]:
@@ -66,15 +52,18 @@ def normalize(record: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def main() -> None:
-    producer = Producer({
-        "bootstrap.servers": KAFKA_BOOTSTRAP,
-        "enable.idempotence": True,
-        "linger.ms": 50,
-        "acks": "all",
-        "retries": 3,
-    })
-    admin = AdminClient({"bootstrap.servers": KAFKA_BOOTSTRAP})
+    admin = KafkaAdminClient(bootstrap_servers=KAFKA_BOOTSTRAP, client_id="gbfs-producer-admin")
     ensure_topic(admin, TOPIC)
+    admin.close()
+
+    producer = KafkaProducer(
+        bootstrap_servers=KAFKA_BOOTSTRAP,
+        key_serializer=lambda k: k.encode("utf-8"),
+        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+        linger_ms=50,
+        acks="all",
+        retries=3,
+    )
 
     print(f"Producing to {TOPIC} from {GBFS_STATUS_URL} every {POLL_SECS}s...")
     while True:
@@ -82,8 +71,7 @@ def main() -> None:
         stations = payload.get("data", {}).get("stations", [])
         for s in stations:
             key = str(s["station_id"])
-            value = json.dumps(normalize(s))
-            producer.produce(topic=TOPIC, key=key, value=value, callback=delivery_cb)
+            producer.send(TOPIC, key=key, value=normalize(s))
         producer.flush()
         time.sleep(POLL_SECS)
 

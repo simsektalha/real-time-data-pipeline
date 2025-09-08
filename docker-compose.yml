@@ -117,7 +117,7 @@ services:
       - ./src:/opt/app/src
     depends_on:
       - kafka
-    command: bash -lc "pip install --no-cache-dir confluent-kafka requests tenacity && python /opt/app/src/ingestion/producer.py"
+    command: bash -lc "pip install --no-cache-dir kafka-python requests tenacity && python /opt/app/src/ingestion/producer.py"
 
 volumes:
   pgdata:
