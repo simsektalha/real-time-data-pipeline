@@ -1,20 +1,35 @@
 import os
+import argparse
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when, expr, to_timestamp, from_unixtime, window, from_json
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, BooleanType
 
-KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
-TOPIC = os.getenv("KAFKA_TOPIC", "gbfs.station_status.json")
 APP_NAME = "GbfsSparkStreaming"
-BASE_PATH = os.getenv("DATA_BASE_PATH", "/opt/app/data")
+
+# Parse CLI args (passed from Airflow Variables via SparkSubmitOperator)
+parser = argparse.ArgumentParser()
+parser.add_argument("--kafka-bootstrap", dest="kafka_bootstrap", default="kafka:9092")
+parser.add_argument("--kafka-topic", dest="kafka_topic", default="gbfs.station_status.json")
+parser.add_argument("--data-base-path", dest="data_base_path", default="/opt/app/data")
+parser.add_argument("--pg-host", dest="pg_host", default="postgres")
+parser.add_argument("--pg-port", dest="pg_port", default="5432")
+parser.add_argument("--pg-db", dest="pg_db", default="postgres")
+parser.add_argument("--pg-user", dest="pg_user", default="postgres")
+parser.add_argument("--pg-password", dest="pg_password", default="postgres")
+parser.add_argument("--gold-table", dest="gold_table", default="station_availability_15m")
+args = parser.parse_args()
+
+KAFKA_BOOTSTRAP = args.kafka_bootstrap
+TOPIC = args.kafka_topic
+BASE_PATH = args.data_base_path
 BRONZE_PATH = os.path.join(BASE_PATH, "bronze", "station_status")
 SILVER_PATH = os.path.join(BASE_PATH, "silver", "station_status")
 CHECKPOINT_BASE = os.path.join(BASE_PATH, "checkpoints")
-GOLD_TABLE = os.getenv("GOLD_TABLE", "station_availability_15m")
+GOLD_TABLE = args.gold_table
 
-PG_URL = f"jdbc:postgresql://{os.getenv('POSTGRES_HOST','postgres')}:{os.getenv('POSTGRES_PORT','5432')}/{os.getenv('POSTGRES_DB','postgres')}"
-PG_USER = os.getenv("POSTGRES_USER", "postgres")
-PG_PWD = os.getenv("POSTGRES_PASSWORD", "postgres")
+PG_URL = f"jdbc:postgresql://{args.pg_host}:{args.pg_port}/{args.pg_db}"
+PG_USER = args.pg_user
+PG_PWD = args.pg_password
 
 json_schema = StructType([
     StructField("station_id", StringType(), False),

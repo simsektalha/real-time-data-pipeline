@@ -3,8 +3,9 @@ import os
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from airflow.models import Variable
 
-SPARK_MASTER = os.getenv("SPARK_MASTER", "spark://spark-master:7077")
+SPARK_MASTER = Variable.get("spark_master", default_var="spark://spark-master:7077")
 BASE = "/opt/app"
 BATCH_JOB = f"{BASE}/src/jobs/spark_batch_backfill.py"
 PKGS = ",".join([
@@ -33,16 +34,18 @@ with DAG(
         application=BATCH_JOB,
         master=SPARK_MASTER,
         packages=PKGS,
-        application_args=["--date", "{{ ds }}"],
+        application_args=[
+            "--date", "{{ ds }}",
+            "--data-base-path", "{{ var.value.data_base_path | default('/opt/app/data') }}",
+            "--pg-host", "{{ var.value.pg_host | default('postgres') }}",
+            "--pg-port", "{{ var.value.pg_port | default('5432') }}",
+            "--pg-db", "{{ var.value.pg_db | default('postgres') }}",
+            "--pg-user", "{{ var.value.pg_user | default('postgres') }}",
+            "--pg-password", "{{ var.value.pg_password | default('postgres') }}",
+            "--gold-table", "{{ var.value.gold_table | default('station_availability_15m') }}",
+        ],
         spark_binary="spark-submit",
         name="gbfs_daily_backfill",
-        env_vars={
-            "KAFKA_BOOTSTRAP": os.getenv("KAFKA_BOOTSTRAP", "kafka:9092"),
-            "POSTGRES_HOST": os.getenv("POSTGRES_HOST", "postgres"),
-            "POSTGRES_DB": os.getenv("POSTGRES_DB", "postgres"),
-            "POSTGRES_USER": os.getenv("POSTGRES_USER", "postgres"),
-            "POSTGRES_PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
-        },
     )
 
     soda_scan_gold = BashOperator(
