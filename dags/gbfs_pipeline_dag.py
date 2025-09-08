@@ -5,7 +5,13 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.models import Variable
 
-SPARK_MASTER = Variable.get("spark_master", default_var="spark://spark-master:7077")
+config = Variable.get("pipeline_config", default_var="{}")
+try:
+    import json as _json
+    CFG = _json.loads(config) if isinstance(config, str) else config
+except Exception:
+    CFG = {}
+SPARK_MASTER = CFG.get("spark_master", "spark://spark-master:7077")
 BASE = "/opt/app"
 BATCH_JOB = f"{BASE}/src/jobs/spark_batch_backfill.py"
 PKGS = ",".join([
@@ -36,13 +42,13 @@ with DAG(
         packages=PKGS,
         application_args=[
             "--date", "{{ ds }}",
-            "--data-base-path", "{{ var.value.data_base_path | default('/opt/app/data') }}",
-            "--pg-host", "{{ var.value.pg_host | default('postgres') }}",
-            "--pg-port", "{{ var.value.pg_port | default('5432') }}",
-            "--pg-db", "{{ var.value.pg_db | default('postgres') }}",
-            "--pg-user", "{{ var.value.pg_user | default('postgres') }}",
-            "--pg-password", "{{ var.value.pg_password | default('postgres') }}",
-            "--gold-table", "{{ var.value.gold_table | default('station_availability_15m') }}",
+            "--data-base-path", CFG.get("data_base_path", "/opt/app/data"),
+            "--pg-host", CFG.get("pg_host", "postgres"),
+            "--pg-port", CFG.get("pg_port", "5432"),
+            "--pg-db", CFG.get("pg_db", "postgres"),
+            "--pg-user", CFG.get("pg_user", "postgres"),
+            "--pg-password", CFG.get("pg_password", "postgres"),
+            "--gold-table", CFG.get("gold_table", "station_availability_15m"),
         ],
         spark_binary="spark-submit",
         name="gbfs_daily_backfill",

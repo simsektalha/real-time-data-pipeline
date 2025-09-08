@@ -1,0 +1,12 @@
+{
+  "spark_master": "spark://spark-master:7077",
+  "kafka_bootstrap": "kafka:9092",
+  "kafka_topic": "gbfs.station_status.json",
+  "data_base_path": "/opt/app/data",
+  "pg_host": "postgres",
+  "pg_port": "5432",
+  "pg_db": "postgres",
+  "pg_user": "postgres",
+  "pg_password": "postgres",
+  "gold_table": "station_availability_15m"
+}
