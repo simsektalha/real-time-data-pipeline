@@ -14,11 +14,11 @@ Production-focused streaming and batch pipeline for NYC Citi Bike GBFS station s
 ```mermaid
 flowchart LR
   GBFS[NYC Citi Bike GBFS station_status.json]
-  PROD[Python Producer (HTTP to Kafka JSON)]
+  PROD[Python Producer HTTP to Kafka JSON]
   KAFKA[Kafka]
   SPARK[Spark Structured Streaming]
-  BRZ[Bronze (Parquet)]
-  SLV[Silver (Parquet)]
+  BRZ[Bronze Parquet]
+  SLV[Silver Parquet]
   GOLD[Postgres station_availability_15m]
   AF[Airflow DAGs]
   SODA[Soda Core Checks]
