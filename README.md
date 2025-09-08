@@ -130,4 +130,3 @@ soda scan -d postgres -c /opt/airflow/soda/configuration.yml /opt/airflow/soda/c
 
 ## License
 MIT
-# real-time-data-pipeline
