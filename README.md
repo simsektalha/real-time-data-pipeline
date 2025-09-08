@@ -13,15 +13,15 @@ Production-focused streaming and batch pipeline for NYC Citi Bike GBFS station s
 ## Architecture
 ```mermaid
 flowchart LR
-  GBFS[NYC Citi Bike GBFS\nstation_status.json]
-  PROD[Python Producer\nHTTP -> Kafka (JSON)]
-  KAFKA[(Kafka)]
+  GBFS[NYC Citi Bike GBFS station_status.json]
+  PROD[Python Producer (HTTP to Kafka JSON)]
+  KAFKA[Kafka]
   SPARK[Spark Structured Streaming]
-  BRZ[[Bronze\nParquet]]
-  SLV[[Silver\nParquet]]
-  GOLD[(Postgres\nstation_availability_15m)]
+  BRZ[Bronze (Parquet)]
+  SLV[Silver (Parquet)]
+  GOLD[Postgres station_availability_15m]
   AF[Airflow DAGs]
-  SODA[Soda Core\nChecks]
+  SODA[Soda Core Checks]
 
   GBFS --> PROD --> KAFKA
   KAFKA -->|consume| SPARK
@@ -30,7 +30,7 @@ flowchart LR
   SPARK --> GOLD
   AF -->|spark-submit backfill| SPARK
   AF -->|soda scan| SODA
-  SODA -.checks.-> GOLD
+  SODA --> GOLD
   AF -->|housekeeping| BRZ
 ```
 
