@@ -1,0 +1,12 @@
+checks for postgres:
+  - schema:
+      warn:
+        when required columns missing: [station_id, window_start, window_end, avg_pct_bikes_available]
+      tables: [station_availability_15m]
+  - row_count > 0:
+      tables: [station_availability_15m]
+  - missing_count(station_id) = 0:
+      tables: [station_availability_15m]
+  - avg(avg_pct_bikes_available) between 0 and 1:
+      tables: [station_availability_15m]
+

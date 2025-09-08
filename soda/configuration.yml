@@ -1,0 +1,9 @@
+data_source postgres:
+  type: postgres
+  connection:
+    host: postgres
+    port: 5432
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    database: ${POSTGRES_DB}
+
